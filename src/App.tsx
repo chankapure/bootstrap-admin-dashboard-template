@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Users from "./pages/Users";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import FormTemplate from "./pages/FormTemplate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/users" element={<Users />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/form-template" element={<FormTemplate />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, LayoutDashboard, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, Users, BarChart3, Settings, LogOut, FileEdit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -15,6 +15,7 @@ const links: SidebarLink[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'Users', icon: Users },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/form-template', label: 'Form Template', icon: FileEdit },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
