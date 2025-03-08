@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,7 @@ interface CropAreaProps {
 
 const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [cropPosition, setCropPosition] = useState({ startX: 0, startY: 0, endX: 0, endY: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -86,6 +88,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       });
       
       drawCropArea(ctx, { startX, startY, endX: startX + size, endY: startY + size });
+      updatePreview({ startX, startY, endX: startX + size, endY: startY + size });
     };
   }, [imageUrl]);
   
@@ -97,14 +100,50 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.drawImage(imgRef.current, 0, 0);
     
+    // Darken the area outside the crop zone
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
+    // Clear the crop area
     ctx.clearRect(startX, startY, endX - startX, endY - startY);
     
-    ctx.strokeStyle = 'white';
+    // Draw crop area border with blue color
+    ctx.strokeStyle = '#33C3F0';
     ctx.lineWidth = 2;
     ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+    
+    // Draw corner handles
+    ctx.fillStyle = '#33C3F0';
+    const handleSize = 8;
+    ctx.fillRect(startX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
+    ctx.fillRect(endX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
+    ctx.fillRect(startX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+    ctx.fillRect(endX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+  };
+  
+  const updatePreview = (pos: typeof cropPosition) => {
+    if (!previewCanvasRef.current || !imgRef.current) return;
+    
+    const { startX, startY, endX, endY } = pos;
+    const previewCtx = previewCanvasRef.current.getContext('2d');
+    if (!previewCtx) return;
+    
+    const width = Math.abs(endX - startX);
+    const height = Math.abs(endY - startY);
+    
+    // Set preview canvas size to match crop dimensions
+    previewCanvasRef.current.width = width;
+    previewCanvasRef.current.height = height;
+    
+    // Draw the cropped portion to the preview canvas
+    previewCtx.drawImage(
+      imgRef.current,
+      Math.min(startX, endX),
+      Math.min(startY, endY),
+      width,
+      height,
+      0, 0, width, height
+    );
   };
   
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -139,6 +178,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const newPos = { ...cropPosition, endX: x, endY: y };
     setCropPosition(newPos);
     drawCropArea(ctx, newPos);
+    updatePreview(newPos);
   };
   
   const handleMouseUp = () => {
@@ -157,6 +197,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const width = Math.abs(cropPosition.endX - cropPosition.startX);
     const height = Math.abs(cropPosition.endY - cropPosition.startY);
     
+    // Create a new canvas at the original resolution to preserve image quality
     const croppedCanvas = document.createElement('canvas');
     croppedCanvas.width = width;
     croppedCanvas.height = height;
@@ -164,28 +205,44 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return;
     
+    // Draw the cropped portion at full resolution
     croppedCtx.drawImage(
-      canvas,
+      imgRef.current!,
       startX, startY, width, height,
       0, 0, width, height
     );
     
-    const croppedImageData = croppedCanvas.toDataURL('image/png');
+    // Use PNG format to preserve quality
+    const croppedImageData = croppedCanvas.toDataURL('image/png', 1.0);
     onCrop(croppedImageData);
   };
   
   return (
     <div className="space-y-4">
-      <div className="border rounded-md overflow-hidden max-w-full">
-        <canvas
-          ref={canvasRef}
-          className="max-w-full h-auto object-contain"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="border rounded-md overflow-hidden max-w-full">
+          <p className="text-sm font-medium p-2 bg-muted">Select area to crop</p>
+          <canvas
+            ref={canvasRef}
+            className="max-w-full h-auto object-contain"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          />
+        </div>
+        
+        <div className="border rounded-md overflow-hidden flex flex-col">
+          <p className="text-sm font-medium p-2 bg-muted">Preview</p>
+          <div className="flex-1 flex items-center justify-center p-4 bg-[#f3f3f3] dark:bg-gray-800">
+            <canvas 
+              ref={previewCanvasRef}
+              className="max-w-full max-h-[200px] object-contain shadow-md"
+            />
+          </div>
+        </div>
       </div>
+      
       <div className="flex justify-end space-x-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={handleCrop}>Crop Image</Button>
