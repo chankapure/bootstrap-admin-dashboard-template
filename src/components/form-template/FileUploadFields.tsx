@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Upload, FileType, Image, Video } from 'lucide-react';
+import { Upload, FileType, Image, Video, Crop } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 interface FilePreviewProps {
   file: File | null;
@@ -46,11 +47,170 @@ const FilePreview = ({ file, type }: FilePreviewProps) => {
   );
 };
 
+interface CropAreaProps {
+  imageUrl: string;
+  onCrop: (croppedImage: string) => void;
+  onCancel: () => void;
+}
+
+const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cropPosition, setCropPosition] = useState({ startX: 0, startY: 0, endX: 0, endY: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  
+  React.useEffect(() => {
+    const img = new Image();
+    img.src = imageUrl;
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      ctx.drawImage(img, 0, 0);
+      imgRef.current = img;
+      
+      // Initialize crop area to center square
+      const size = Math.min(img.width, img.height) / 2;
+      const startX = (img.width - size) / 2;
+      const startY = (img.height - size) / 2;
+      setCropPosition({ 
+        startX, 
+        startY, 
+        endX: startX + size, 
+        endY: startY + size 
+      });
+      
+      drawCropArea(ctx, { startX, startY, endX: startX + size, endY: startY + size });
+    };
+  }, [imageUrl]);
+  
+  const drawCropArea = (ctx: CanvasRenderingContext2D, pos: typeof cropPosition) => {
+    if (!canvasRef.current || !imgRef.current) return;
+    
+    const { startX, startY, endX, endY } = pos;
+    
+    // Clear and redraw the image
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.drawImage(imgRef.current, 0, 0);
+    
+    // Darken the area outside the crop zone
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    
+    // Clear the crop area (transparent)
+    ctx.clearRect(startX, startY, endX - startX, endY - startY);
+    
+    // Draw crop area border
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+  };
+  
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    setIsDragging(true);
+    setCropPosition({ ...cropPosition, startX: x, startY: y, endX: x, endY: y });
+  };
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    const newPos = { ...cropPosition, endX: x, endY: y };
+    setCropPosition(newPos);
+    drawCropArea(ctx, newPos);
+  };
+  
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+  
+  const handleCrop = () => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Ensure start coordinates are smaller than end coordinates
+    const startX = Math.min(cropPosition.startX, cropPosition.endX);
+    const startY = Math.min(cropPosition.startY, cropPosition.endY);
+    const width = Math.abs(cropPosition.endX - cropPosition.startX);
+    const height = Math.abs(cropPosition.endY - cropPosition.startY);
+    
+    // Create new canvas for the cropped image
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = width;
+    croppedCanvas.height = height;
+    
+    const croppedCtx = croppedCanvas.getContext('2d');
+    if (!croppedCtx) return;
+    
+    // Draw the cropped portion
+    croppedCtx.drawImage(
+      canvas,
+      startX, startY, width, height,
+      0, 0, width, height
+    );
+    
+    // Convert to base64 and pass to parent
+    const croppedImageData = croppedCanvas.toDataURL('image/png');
+    onCrop(croppedImageData);
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div className="border rounded-md overflow-hidden max-w-full">
+        <canvas
+          ref={canvasRef}
+          className="max-w-full h-auto object-contain"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
+      </div>
+      <div className="flex justify-end space-x-2">
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={handleCrop}>Crop Image</Button>
+      </div>
+    </div>
+  );
+};
+
 const FileUploadFields = () => {
+  const { toast } = useToast();
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
   
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -62,6 +222,26 @@ const FileUploadFields = () => {
     if (e.target.files && e.target.files[0]) {
       setImageFile(e.target.files[0]);
     }
+  };
+  
+  const handleCropImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setCropImageUrl(URL.createObjectURL(file));
+    }
+  };
+  
+  const handleCropComplete = (croppedImageData: string) => {
+    setCroppedImage(croppedImageData);
+    setCropImageUrl(null);
+    toast({
+      title: "Image cropped successfully",
+      description: "Your image has been cropped and is ready to use."
+    });
+  };
+  
+  const handleCropCancel = () => {
+    setCropImageUrl(null);
   };
   
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,6 +326,46 @@ const FileUploadFields = () => {
             )}
           </div>
           <FilePreview file={imageFile} type="image" />
+        </div>
+        
+        {/* Image Upload with Crop */}
+        <div className="space-y-2">
+          <Label htmlFor="crop-image-upload">Image Upload with Crop</Label>
+          <div className="flex items-center space-x-2">
+            <Input
+              id="crop-image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleCropImageChange}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={() => document.getElementById('crop-image-upload')?.click()}
+              className="cursor-pointer"
+            >
+              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Image
+            </Button>
+          </div>
+          
+          {cropImageUrl && (
+            <CropArea 
+              imageUrl={cropImageUrl}
+              onCrop={handleCropComplete}
+              onCancel={handleCropCancel}
+            />
+          )}
+          
+          {croppedImage && !cropImageUrl && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground mb-2">Cropped Result:</p>
+              <img 
+                src={croppedImage} 
+                alt="Cropped Preview" 
+                className="max-w-full h-auto max-h-[200px] rounded-md"
+              />
+            </div>
+          )}
         </div>
         
         {/* Video Upload */}
