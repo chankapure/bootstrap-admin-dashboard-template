@@ -1,9 +1,9 @@
-
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Upload, FileType, Image, Video, Crop } from 'lucide-react';
+import { Upload, FileType, Video, Crop } from 'lucide-react';
+import { Image as LucideImage } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
@@ -60,7 +60,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const imgRef = useRef<HTMLImageElement | null>(null);
   
   React.useEffect(() => {
-    const img = new Image();
+    const img = new window.Image();
     img.src = imageUrl;
     img.onload = () => {
       const canvas = canvasRef.current;
@@ -75,7 +75,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       ctx.drawImage(img, 0, 0);
       imgRef.current = img;
       
-      // Initialize crop area to center square
       const size = Math.min(img.width, img.height) / 2;
       const startX = (img.width - size) / 2;
       const startY = (img.height - size) / 2;
@@ -95,18 +94,14 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     
     const { startX, startY, endX, endY } = pos;
     
-    // Clear and redraw the image
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.drawImage(imgRef.current, 0, 0);
     
-    // Darken the area outside the crop zone
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
-    // Clear the crop area (transparent)
     ctx.clearRect(startX, startY, endX - startX, endY - startY);
     
-    // Draw crop area border
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
     ctx.strokeRect(startX, startY, endX - startX, endY - startY);
@@ -157,13 +152,11 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Ensure start coordinates are smaller than end coordinates
     const startX = Math.min(cropPosition.startX, cropPosition.endX);
     const startY = Math.min(cropPosition.startY, cropPosition.endY);
     const width = Math.abs(cropPosition.endX - cropPosition.startX);
     const height = Math.abs(cropPosition.endY - cropPosition.startY);
     
-    // Create new canvas for the cropped image
     const croppedCanvas = document.createElement('canvas');
     croppedCanvas.width = width;
     croppedCanvas.height = height;
@@ -171,14 +164,12 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return;
     
-    // Draw the cropped portion
     croppedCtx.drawImage(
       canvas,
       startX, startY, width, height,
       0, 0, width, height
     );
     
-    // Convert to base64 and pass to parent
     const croppedImageData = croppedCanvas.toDataURL('image/png');
     onCrop(croppedImageData);
   };
@@ -275,7 +266,6 @@ const FileUploadFields = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Document Upload */}
         <div className="space-y-2">
           <Label htmlFor="document-upload">Document Upload</Label>
           <div className="flex items-center space-x-2">
@@ -301,7 +291,6 @@ const FileUploadFields = () => {
           <FilePreview file={documentFile} type="document" />
         </div>
         
-        {/* Image Upload */}
         <div className="space-y-2">
           <Label htmlFor="image-upload">Image Upload</Label>
           <div className="flex items-center space-x-2">
@@ -317,7 +306,7 @@ const FileUploadFields = () => {
               onClick={() => document.getElementById('image-upload')?.click()}
               className="cursor-pointer"
             >
-              <Image className="mr-2 h-4 w-4" /> Upload Image
+              <LucideImage className="mr-2 h-4 w-4" /> Upload Image
             </Button>
             {imageFile && (
               <span className="text-sm text-muted-foreground truncate max-w-[200px]">
@@ -328,7 +317,6 @@ const FileUploadFields = () => {
           <FilePreview file={imageFile} type="image" />
         </div>
         
-        {/* Image Upload with Crop */}
         <div className="space-y-2">
           <Label htmlFor="crop-image-upload">Image Upload with Crop</Label>
           <div className="flex items-center space-x-2">
@@ -368,7 +356,6 @@ const FileUploadFields = () => {
           )}
         </div>
         
-        {/* Video Upload */}
         <div className="space-y-2">
           <Label htmlFor="video-upload">Video Upload</Label>
           <div className="flex items-center space-x-2">
@@ -395,7 +382,6 @@ const FileUploadFields = () => {
           <FilePreview file={videoFile} type="video" />
         </div>
         
-        {/* Drag and Drop */}
         <div className="space-y-2">
           <Label>Drag and Drop</Label>
           <div 
