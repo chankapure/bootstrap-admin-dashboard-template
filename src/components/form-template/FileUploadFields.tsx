@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -59,6 +58,8 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [cropPosition, setCropPosition] = useState({ startX: 0, startY: 0, endX: 0, endY: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
+  const [moveStartPos, setMoveStartPos] = useState({ x: 0, y: 0 });
   const imgRef = useRef<HTMLImageElement | null>(null);
   
   React.useEffect(() => {
@@ -97,15 +98,21 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     
     const { startX, startY, endX, endY } = pos;
     
+    // Clear and redraw the image
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.drawImage(imgRef.current, 0, 0);
     
-    // Darken the area outside the crop zone
+    // Create semi-transparent overlay for the entire image
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
-    // Clear the crop area
-    ctx.clearRect(startX, startY, endX - startX, endY - startY);
+    // Clear the crop area (make it transparent)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    ctx.fillRect(startX, startY, endX - startX, endY - startY);
+    
+    // Reset composite operation to default
+    ctx.globalCompositeOperation = 'source-over';
     
     // Draw crop area border with blue color
     ctx.strokeStyle = '#33C3F0';
@@ -157,12 +164,24 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     
-    setIsDragging(true);
-    setCropPosition({ ...cropPosition, startX: x, startY: y, endX: x, endY: y });
+    // Check if we're inside the crop area (for moving)
+    if (
+      x >= cropPosition.startX && 
+      x <= cropPosition.endX && 
+      y >= cropPosition.startY && 
+      y <= cropPosition.endY
+    ) {
+      setIsMoving(true);
+      setMoveStartPos({ x, y });
+    } else {
+      // Otherwise start a new selection
+      setIsDragging(true);
+      setCropPosition({ ...cropPosition, startX: x, startY: y, endX: x, endY: y });
+    }
   };
   
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !canvasRef.current) return;
+    if (!canvasRef.current || (!isDragging && !isMoving)) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -175,14 +194,46 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     
-    const newPos = { ...cropPosition, endX: x, endY: y };
-    setCropPosition(newPos);
-    drawCropArea(ctx, newPos);
-    updatePreview(newPos);
+    if (isMoving) {
+      // Move the entire selection
+      const deltaX = x - moveStartPos.x;
+      const deltaY = y - moveStartPos.y;
+      
+      const width = cropPosition.endX - cropPosition.startX;
+      const height = cropPosition.endY - cropPosition.startY;
+      
+      let newStartX = cropPosition.startX + deltaX;
+      let newStartY = cropPosition.startY + deltaY;
+      
+      // Make sure we don't move outside the canvas
+      if (newStartX < 0) newStartX = 0;
+      if (newStartY < 0) newStartY = 0;
+      if (newStartX + width > canvas.width) newStartX = canvas.width - width;
+      if (newStartY + height > canvas.height) newStartY = canvas.height - height;
+      
+      const newPos = {
+        startX: newStartX,
+        startY: newStartY,
+        endX: newStartX + width,
+        endY: newStartY + height
+      };
+      
+      setCropPosition(newPos);
+      setMoveStartPos({ x, y });
+      drawCropArea(ctx, newPos);
+      updatePreview(newPos);
+    } else if (isDragging) {
+      // Resize the selection
+      const newPos = { ...cropPosition, endX: x, endY: y };
+      setCropPosition(newPos);
+      drawCropArea(ctx, newPos);
+      updatePreview(newPos);
+    }
   };
   
   const handleMouseUp = () => {
     setIsDragging(false);
+    setIsMoving(false);
   };
   
   const handleCrop = () => {
