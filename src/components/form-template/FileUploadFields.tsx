@@ -51,9 +51,10 @@ interface CropAreaProps {
   imageUrl: string;
   onCrop: (croppedImage: string) => void;
   onCancel: () => void;
+  aspectRatio?: 'square' | 'rectangle' | 'banner';
 }
 
-const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
+const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAreaProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [cropPosition, setCropPosition] = useState({ startX: 0, startY: 0, endX: 0, endY: 0 });
@@ -61,7 +62,8 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const [isMoving, setIsMoving] = useState(false);
   const [moveStartPos, setMoveStartPos] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
+  const [cropShape, setCropShape] = useState<'square' | 'circle'>(aspectRatio === 'square' ? 'square' : 'rectangle');
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   
   React.useEffect(() => {
@@ -77,31 +79,81 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       canvas.width = img.width;
       canvas.height = img.height;
       
-      ctx.drawImage(img, 0, 0);
+      drawImageWithZoom(ctx, img, zoomLevel);
       imgRef.current = img;
       
-      const size = Math.min(img.width, img.height) / 2;
-      const startX = (img.width - size) / 2;
-      const startY = (img.height - size) / 2;
+      let width, height, startX, startY;
+      
+      if (aspectRatio === 'banner') {
+        width = Math.min(img.width * 0.9, img.width);
+        height = width / 3;
+        startX = (img.width - width) / 2;
+        startY = (img.height - height) / 2;
+      } else if (aspectRatio === 'rectangle') {
+        width = Math.min(img.width * 0.8, img.width);
+        height = width * 0.75;
+        startX = (img.width - width) / 2;
+        startY = (img.height - height) / 2;
+      } else {
+        const size = Math.min(img.width, img.height) / 2;
+        width = size;
+        height = size;
+        startX = (img.width - size) / 2;
+        startY = (img.height - size) / 2;
+      }
+      
       setCropPosition({ 
         startX, 
         startY, 
-        endX: startX + size, 
-        endY: startY + size 
+        endX: startX + width, 
+        endY: startY + height 
       });
       
-      drawCropArea(ctx, { startX, startY, endX: startX + size, endY: startY + size });
-      updatePreview({ startX, startY, endX: startX + size, endY: startY + size });
+      drawCropArea(ctx, { startX, startY, endX: startX + width, endY: startY + height });
+      updatePreview({ startX, startY, endX: startX + width, endY: startY + height });
     };
-  }, [imageUrl]);
+  }, [imageUrl, aspectRatio]);
+  
+  React.useEffect(() => {
+    if (!canvasRef.current || !imgRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    drawImageWithZoom(ctx, imgRef.current, zoomLevel);
+    
+    drawCropArea(ctx, cropPosition);
+    updatePreview(cropPosition);
+  }, [zoomLevel]);
+  
+  const drawImageWithZoom = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, zoom: number) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const scaledWidth = img.width * zoom;
+    const scaledHeight = img.height * zoom;
+    const offsetX = (canvas.width - scaledWidth) / 2;
+    const offsetY = (canvas.height - scaledHeight) / 2;
+    
+    ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+  };
   
   const drawCropArea = (ctx: CanvasRenderingContext2D, pos: typeof cropPosition) => {
     if (!canvasRef.current || !imgRef.current) return;
     
     const { startX, startY, endX, endY } = pos;
+    const width = Math.abs(endX - startX);
+    const height = Math.abs(endY - startY);
     
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.drawImage(imgRef.current, 0, 0);
+    ctx.save();
+    
+    drawImageWithZoom(ctx, imgRef.current, zoomLevel);
     
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -109,7 +161,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     ctx.globalCompositeOperation = 'destination-out';
     
     if (cropShape === 'circle') {
-      const radius = Math.abs(endX - startX) / 2;
+      const radius = width / 2;
       const centerX = startX + radius;
       const centerY = startY + radius;
       ctx.beginPath();
@@ -117,7 +169,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       ctx.fill();
     } else {
       ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-      ctx.fillRect(startX, startY, endX - startX, endY - startY);
+      ctx.fillRect(startX, startY, width, height);
     }
     
     ctx.globalCompositeOperation = 'source-over';
@@ -126,28 +178,28 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     ctx.lineWidth = 2;
     
     if (cropShape === 'circle') {
-      const radius = Math.abs(endX - startX) / 2;
+      const radius = width / 2;
       const centerX = startX + radius;
       const centerY = startY + radius;
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+      ctx.strokeRect(startX, startY, width, height);
     }
     
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     
-    if (cropShape === 'square') {
-      const thirdHeight = (endY - startY) / 3;
+    if (cropShape === 'square' || cropShape === 'rectangle') {
+      const thirdHeight = height / 3;
       ctx.beginPath();
       ctx.moveTo(startX, startY + thirdHeight);
       ctx.lineTo(endX, startY + thirdHeight);
       ctx.moveTo(startX, startY + 2 * thirdHeight);
       ctx.lineTo(endX, startY + 2 * thirdHeight);
       
-      const thirdWidth = (endX - startX) / 3;
+      const thirdWidth = width / 3;
       ctx.moveTo(startX + thirdWidth, startY);
       ctx.lineTo(startX + thirdWidth, endY);
       ctx.moveTo(startX + 2 * thirdWidth, startY);
@@ -158,12 +210,21 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     ctx.fillStyle = '#3b82f6';
     const handleSize = 10;
     
-    if (cropShape === 'square') {
+    if (cropShape !== 'circle') {
       ctx.fillRect(startX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
       ctx.fillRect(endX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
       ctx.fillRect(startX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
       ctx.fillRect(endX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+      
+      if (aspectRatio !== 'square') {
+        ctx.fillRect(startX + width/2 - handleSize/2, startY - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(startX + width/2 - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(startX - handleSize/2, startY + height/2 - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(endX - handleSize/2, startY + height/2 - handleSize/2, handleSize, handleSize);
+      }
     }
+    
+    ctx.restore();
   };
   
   const updatePreview = (pos: typeof cropPosition) => {
@@ -179,14 +240,30 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     previewCanvasRef.current.width = width;
     previewCanvasRef.current.height = height;
     
-    previewCtx.drawImage(
-      imgRef.current,
-      Math.min(startX, endX),
-      Math.min(startY, endY),
-      width,
-      height,
-      0, 0, width, height
-    );
+    const scaledWidth = imgRef.current.width * zoomLevel;
+    const scaledHeight = imgRef.current.height * zoomLevel;
+    const offsetX = (canvasRef.current!.width - scaledWidth) / 2;
+    const offsetY = (canvasRef.current!.height - scaledHeight) / 2;
+    
+    const sourceX = (startX - offsetX) / zoomLevel;
+    const sourceY = (startY - offsetY) / zoomLevel;
+    const sourceWidth = width / zoomLevel;
+    const sourceHeight = height / zoomLevel;
+    
+    previewCtx.clearRect(0, 0, width, height);
+    
+    if (
+      sourceX >= 0 && 
+      sourceY >= 0 && 
+      sourceX + sourceWidth <= imgRef.current.width &&
+      sourceY + sourceHeight <= imgRef.current.height
+    ) {
+      previewCtx.drawImage(
+        imgRef.current,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, width, height
+      );
+    }
     
     if (cropShape === 'circle') {
       previewCtx.globalCompositeOperation = 'destination-in';
@@ -195,6 +272,29 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       previewCtx.fill();
       previewCtx.globalCompositeOperation = 'source-over';
     }
+  };
+  
+  const getResizeHandle = (x: number, y: number) => {
+    const { startX, startY, endX, endY } = cropPosition;
+    const width = Math.abs(endX - startX);
+    const height = Math.abs(endY - startY);
+    const handleSize = 10;
+    
+    if (cropShape === 'circle') return null;
+    
+    if (Math.abs(x - startX) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tl';
+    if (Math.abs(x - endX) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tr';
+    if (Math.abs(x - startX) <= handleSize && Math.abs(y - endY) <= handleSize) return 'bl';
+    if (Math.abs(x - endX) <= handleSize && Math.abs(y - endY) <= handleSize) return 'br';
+    
+    if (aspectRatio !== 'square') {
+      if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tm';
+      if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - endY) <= handleSize) return 'bm';
+      if (Math.abs(x - startX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'lm';
+      if (Math.abs(x - endX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'rm';
+    }
+    
+    return null;
   };
   
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -208,6 +308,14 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     
+    const handle = getResizeHandle(x, y);
+    if (handle) {
+      setResizeHandle(handle);
+      setIsDragging(false);
+      setIsMoving(false);
+      return;
+    }
+    
     if (
       x >= cropPosition.startX && 
       x <= cropPosition.endX && 
@@ -216,14 +324,18 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     ) {
       setIsMoving(true);
       setMoveStartPos({ x, y });
+      setIsDragging(false);
+      setResizeHandle(null);
     } else {
       setIsDragging(true);
-      setCropPosition({ ...cropPosition, startX: x, startY: y, endX: x, endY: y });
+      setIsMoving(false);
+      setResizeHandle(null);
+      setCropPosition({ startX: x, startY: y, endX: x, endY: y });
     }
   };
   
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || (!isDragging && !isMoving)) return;
+    if (!canvasRef.current) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -235,6 +347,58 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
+    
+    if (resizeHandle) {
+      let newPos = { ...cropPosition };
+      
+      switch (resizeHandle) {
+        case 'tl': newPos.startX = x; newPos.startY = y; break;
+        case 'tr': newPos.endX = x; newPos.startY = y; break;
+        case 'bl': newPos.startX = x; newPos.endY = y; break;
+        case 'br': newPos.endX = x; newPos.endY = y; break;
+        case 'tm': newPos.startY = y; break;
+        case 'bm': newPos.endY = y; break;
+        case 'lm': newPos.startX = x; break;
+        case 'rm': newPos.endX = x; break;
+      }
+      
+      if ((cropShape === 'square' || aspectRatio === 'square') && resizeHandle !== 'tm' && resizeHandle !== 'bm' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        
+        if (resizeHandle === 'tl') {
+          newPos.startY = newPos.endY - width;
+        } else if (resizeHandle === 'tr') {
+          newPos.startY = newPos.endY - width;
+        } else if (resizeHandle === 'bl') {
+          newPos.endY = newPos.startY + width;
+        } else if (resizeHandle === 'br') {
+          newPos.endY = newPos.startY + width;
+        }
+      } else if (aspectRatio === 'banner' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        const height = width / 3;
+        
+        if (resizeHandle.includes('t')) {
+          newPos.startY = newPos.endY - height;
+        } else if (resizeHandle.includes('b')) {
+          newPos.endY = newPos.startY + height;
+        }
+      } else if (aspectRatio === 'rectangle' && resizeHandle !== 'tm' && resizeHandle !== 'bm' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        const height = width * 0.75;
+        
+        if (resizeHandle.includes('t')) {
+          newPos.startY = newPos.endY - height;
+        } else if (resizeHandle.includes('b')) {
+          newPos.endY = newPos.startY + height;
+        }
+      }
+      
+      setCropPosition(newPos);
+      drawCropArea(ctx, newPos);
+      updatePreview(newPos);
+      return;
+    }
     
     if (isMoving) {
       const deltaX = x - moveStartPos.x;
@@ -262,31 +426,44 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       setMoveStartPos({ x, y });
       drawCropArea(ctx, newPos);
       updatePreview(newPos);
-    } else if (isDragging) {
-      const newPos = { ...cropPosition, endX: x, endY: y };
+      return;
+    }
+    
+    if (isDragging) {
+      let newPos = { ...cropPosition, endX: x, endY: y };
       
-      if (cropShape === 'square' || cropShape === 'circle') {
+      if (cropShape === 'square' || aspectRatio === 'square') {
         const width = Math.abs(newPos.endX - newPos.startX);
-        const height = Math.abs(newPos.endY - newPos.startY);
-        const size = Math.max(width, height);
-        
-        if (newPos.endX > newPos.startX) {
-          newPos.endX = newPos.startX + size;
-        } else {
-          newPos.endX = newPos.startX - size;
-        }
         
         if (newPos.endY > newPos.startY) {
-          newPos.endY = newPos.startY + size;
+          newPos.endY = newPos.startY + width;
         } else {
-          newPos.endY = newPos.startY - size;
+          newPos.endY = newPos.startY - width;
         }
+      } else if (aspectRatio === 'banner') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        const height = width / 3;
         
-        if (newPos.endX > canvas.width) newPos.endX = canvas.width;
-        if (newPos.endY > canvas.height) newPos.endY = canvas.height;
-        if (newPos.endX < 0) newPos.endX = 0;
-        if (newPos.endY < 0) newPos.endY = 0;
+        if (newPos.endY > newPos.startY) {
+          newPos.endY = newPos.startY + height;
+        } else {
+          newPos.endY = newPos.startY - height;
+        }
+      } else if (aspectRatio === 'rectangle') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        const height = width * 0.75;
+        
+        if (newPos.endY > newPos.startY) {
+          newPos.endY = newPos.startY + height;
+        } else {
+          newPos.endY = newPos.startY - height;
+        }
       }
+      
+      if (newPos.endX > canvas.width) newPos.endX = canvas.width;
+      if (newPos.endY > canvas.height) newPos.endY = canvas.height;
+      if (newPos.endX < 0) newPos.endX = 0;
+      if (newPos.endY < 0) newPos.endY = 0;
       
       setCropPosition(newPos);
       drawCropArea(ctx, newPos);
@@ -297,84 +474,75 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const handleMouseUp = () => {
     setIsDragging(false);
     setIsMoving(false);
+    setResizeHandle(null);
   };
   
   const handleZoom = (direction: 'in' | 'out') => {
     if (!canvasRef.current || !imgRef.current) return;
     
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
     const newZoomLevel = direction === 'in' 
-      ? Math.min(zoomLevel + 0.1, 2) 
+      ? Math.min(zoomLevel + 0.1, 3) 
       : Math.max(zoomLevel - 0.1, 0.5);
     
     setZoomLevel(newZoomLevel);
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(newZoomLevel, newZoomLevel);
-    ctx.translate(-centerX, -centerY);
-    ctx.drawImage(imgRef.current, 0, 0);
-    ctx.restore();
-    
-    drawCropArea(ctx, cropPosition);
-    updatePreview(cropPosition);
   };
   
   const toggleCropShape = () => {
-    const newShape = cropShape === 'square' ? 'circle' : 'square';
-    setCropShape(newShape);
-    
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        drawCropArea(ctx, cropPosition);
-        updatePreview(cropPosition);
+    if (aspectRatio === 'square') {
+      const newShape = cropShape === 'square' ? 'circle' : 'square';
+      setCropShape(newShape);
+      
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          drawCropArea(ctx, cropPosition);
+          updatePreview(cropPosition);
+        }
       }
     }
   };
   
   const handleCrop = () => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !imgRef.current) return;
     
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
+    const tempCanvas = document.createElement('canvas');
     const startX = Math.min(cropPosition.startX, cropPosition.endX);
     const startY = Math.min(cropPosition.startY, cropPosition.endY);
     const width = Math.abs(cropPosition.endX - cropPosition.startX);
     const height = Math.abs(cropPosition.endY - cropPosition.startY);
     
-    const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = width;
-    croppedCanvas.height = height;
+    const outputScale = 2;
+    tempCanvas.width = width * outputScale;
+    tempCanvas.height = height * outputScale;
     
-    const croppedCtx = croppedCanvas.getContext('2d');
-    if (!croppedCtx) return;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
     
-    croppedCtx.drawImage(
-      imgRef.current!,
-      startX, startY, width, height,
-      0, 0, width, height
+    const scaledWidth = imgRef.current.width * zoomLevel;
+    const scaledHeight = imgRef.current.height * zoomLevel;
+    const offsetX = (canvasRef.current.width - scaledWidth) / 2;
+    const offsetY = (canvasRef.current.height - scaledHeight) / 2;
+    
+    const sourceX = (startX - offsetX) / zoomLevel;
+    const sourceY = (startY - offsetY) / zoomLevel;
+    const sourceWidth = width / zoomLevel;
+    const sourceHeight = height / zoomLevel;
+    
+    tempCtx.drawImage(
+      imgRef.current,
+      sourceX, sourceY, sourceWidth, sourceHeight,
+      0, 0, tempCanvas.width, tempCanvas.height
     );
     
     if (cropShape === 'circle') {
-      croppedCtx.globalCompositeOperation = 'destination-in';
-      croppedCtx.beginPath();
-      croppedCtx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2);
-      croppedCtx.fill();
-      croppedCtx.globalCompositeOperation = 'source-over';
+      tempCtx.globalCompositeOperation = 'destination-in';
+      tempCtx.beginPath();
+      tempCtx.arc(tempCanvas.width / 2, tempCanvas.height / 2, tempCanvas.width / 2, 0, Math.PI * 2);
+      tempCtx.fill();
+      tempCtx.globalCompositeOperation = 'source-over';
     }
     
-    const croppedImageData = croppedCanvas.toDataURL('image/png', 1.0);
+    const croppedImageData = tempCanvas.toDataURL('image/png', 1.0);
     onCrop(croppedImageData);
   };
   
@@ -397,14 +565,16 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
         >
           <ZoomOut className="h-4 w-4 mr-1" /> Zoom Out
         </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={toggleCropShape}
-          title="Toggle Crop Shape"
-        >
-          {cropShape === 'square' ? 'Circle Crop' : 'Square Crop'}
-        </Button>
+        {aspectRatio === 'square' && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={toggleCropShape}
+            title="Toggle Crop Shape"
+          >
+            {cropShape === 'square' ? 'Circle Crop' : 'Square Crop'}
+          </Button>
+        )}
         <div className="ml-auto flex gap-2">
           <Button 
             variant="outline"
@@ -438,7 +608,8 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
               onMouseLeave={handleMouseUp}
             />
             <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-              {cropShape === 'square' ? 'Square Crop' : 'Circle Crop'} | Zoom: {(zoomLevel * 100).toFixed(0)}%
+              {aspectRatio === 'square' ? (cropShape === 'square' ? 'Square' : 'Circle') : 
+               aspectRatio === 'banner' ? 'Banner (3:1)' : 'Rectangle (4:3)'} | Zoom: {(zoomLevel * 100).toFixed(0)}%
             </div>
           </div>
         </div>
@@ -470,6 +641,9 @@ const FileUploadFields = () => {
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
+  const [croppedBanner, setCroppedBanner] = useState<string | null>(null);
+  const [cropType, setCropType] = useState<'profile' | 'banner'>('profile');
   
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -487,20 +661,42 @@ const FileUploadFields = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setCropImageUrl(URL.createObjectURL(file));
+      setCropType('profile');
+    }
+  };
+  
+  const handleBannerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setBannerImageUrl(URL.createObjectURL(file));
+      setCropType('banner');
     }
   };
   
   const handleCropComplete = (croppedImageData: string) => {
-    setCroppedImage(croppedImageData);
-    setCropImageUrl(null);
-    toast({
-      title: "Image cropped successfully",
-      description: "Your image has been cropped and is ready to use."
-    });
+    if (cropType === 'profile') {
+      setCroppedImage(croppedImageData);
+      setCropImageUrl(null);
+      toast({
+        title: "Profile image cropped successfully",
+        description: "Your profile image has been cropped and is ready to use."
+      });
+    } else {
+      setCroppedBanner(croppedImageData);
+      setBannerImageUrl(null);
+      toast({
+        title: "Banner image cropped successfully",
+        description: "Your banner image has been cropped and is ready to use."
+      });
+    }
   };
   
   const handleCropCancel = () => {
-    setCropImageUrl(null);
+    if (cropType === 'profile') {
+      setCropImageUrl(null);
+    } else {
+      setBannerImageUrl(null);
+    }
   };
   
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -586,7 +782,7 @@ const FileUploadFields = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="crop-image-upload">LinkedIn-style Image Crop</Label>
+          <Label htmlFor="crop-image-upload">LinkedIn-style Profile Image Crop</Label>
           <div className="flex items-center space-x-2">
             <Input
               id="crop-image-upload"
@@ -600,25 +796,66 @@ const FileUploadFields = () => {
               onClick={() => document.getElementById('crop-image-upload')?.click()}
               className="cursor-pointer"
             >
-              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Image
+              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Profile Image
             </Button>
           </div>
           
-          {cropImageUrl && (
+          {cropImageUrl && cropType === 'profile' && (
             <CropArea 
               imageUrl={cropImageUrl}
               onCrop={handleCropComplete}
               onCancel={handleCropCancel}
+              aspectRatio="square"
             />
           )}
           
           {croppedImage && !cropImageUrl && (
             <div className="mt-2">
-              <p className="text-sm text-muted-foreground mb-2">Cropped Result:</p>
+              <p className="text-sm text-muted-foreground mb-2">Cropped Profile Image:</p>
               <img 
                 src={croppedImage} 
                 alt="Cropped Preview" 
                 className={`max-w-full h-auto max-h-[200px] rounded-md ${cropShape === 'circle' ? 'rounded-full' : ''}`}
+              />
+            </div>
+          )}
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="banner-image-upload">Cover Image/Banner Crop (Facebook/LinkedIn style)</Label>
+          <div className="flex items-center space-x-2">
+            <Input
+              id="banner-image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleBannerImageChange}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={() => document.getElementById('banner-image-upload')?.click()}
+              className="cursor-pointer"
+            >
+              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Banner Image
+            </Button>
+          </div>
+          
+          {bannerImageUrl && cropType === 'banner' && (
+            <CropArea 
+              imageUrl={bannerImageUrl}
+              onCrop={handleCropComplete}
+              onCancel={handleCropCancel}
+              aspectRatio="banner"
+            />
+          )}
+          
+          {croppedBanner && !bannerImageUrl && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground mb-2">Cropped Banner Image:</p>
+              <img 
+                src={croppedBanner} 
+                alt="Cropped Banner Preview" 
+                className="max-w-full h-auto max-h-[200px] rounded-md"
               />
             </div>
           )}
