@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Upload, FileType, Video, Crop } from 'lucide-react';
+import { Upload, FileType, Video, Crop, ZoomIn, ZoomOut, Move, Check, X } from 'lucide-react';
 import { Image as LucideImage } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,8 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [moveStartPos, setMoveStartPos] = useState({ x: 0, y: 0 });
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
   const imgRef = useRef<HTMLImageElement | null>(null);
   
   React.useEffect(() => {
@@ -98,34 +100,70 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     
     const { startX, startY, endX, endY } = pos;
     
-    // Clear and redraw the image
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.drawImage(imgRef.current, 0, 0);
     
-    // Create semi-transparent overlay for the entire image
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
-    // Clear the crop area (make it transparent)
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-    ctx.fillRect(startX, startY, endX - startX, endY - startY);
     
-    // Reset composite operation to default
+    if (cropShape === 'circle') {
+      const radius = Math.abs(endX - startX) / 2;
+      const centerX = startX + radius;
+      const centerY = startY + radius;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+      ctx.fillRect(startX, startY, endX - startX, endY - startY);
+    }
+    
     ctx.globalCompositeOperation = 'source-over';
     
-    // Draw crop area border with blue color
-    ctx.strokeStyle = '#33C3F0';
+    ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
-    ctx.strokeRect(startX, startY, endX - startX, endY - startY);
     
-    // Draw corner handles
-    ctx.fillStyle = '#33C3F0';
-    const handleSize = 8;
-    ctx.fillRect(startX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
-    ctx.fillRect(endX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
-    ctx.fillRect(startX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
-    ctx.fillRect(endX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+    if (cropShape === 'circle') {
+      const radius = Math.abs(endX - startX) / 2;
+      const centerX = startX + radius;
+      const centerY = startY + radius;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+    }
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1;
+    
+    if (cropShape === 'square') {
+      const thirdHeight = (endY - startY) / 3;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY + thirdHeight);
+      ctx.lineTo(endX, startY + thirdHeight);
+      ctx.moveTo(startX, startY + 2 * thirdHeight);
+      ctx.lineTo(endX, startY + 2 * thirdHeight);
+      
+      const thirdWidth = (endX - startX) / 3;
+      ctx.moveTo(startX + thirdWidth, startY);
+      ctx.lineTo(startX + thirdWidth, endY);
+      ctx.moveTo(startX + 2 * thirdWidth, startY);
+      ctx.lineTo(startX + 2 * thirdWidth, endY);
+      ctx.stroke();
+    }
+    
+    ctx.fillStyle = '#3b82f6';
+    const handleSize = 10;
+    
+    if (cropShape === 'square') {
+      ctx.fillRect(startX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(endX - handleSize/2, startY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(startX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(endX - handleSize/2, endY - handleSize/2, handleSize, handleSize);
+    }
   };
   
   const updatePreview = (pos: typeof cropPosition) => {
@@ -138,11 +176,9 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const width = Math.abs(endX - startX);
     const height = Math.abs(endY - startY);
     
-    // Set preview canvas size to match crop dimensions
     previewCanvasRef.current.width = width;
     previewCanvasRef.current.height = height;
     
-    // Draw the cropped portion to the preview canvas
     previewCtx.drawImage(
       imgRef.current,
       Math.min(startX, endX),
@@ -151,6 +187,14 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       height,
       0, 0, width, height
     );
+    
+    if (cropShape === 'circle') {
+      previewCtx.globalCompositeOperation = 'destination-in';
+      previewCtx.beginPath();
+      previewCtx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2);
+      previewCtx.fill();
+      previewCtx.globalCompositeOperation = 'source-over';
+    }
   };
   
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -164,7 +208,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     
-    // Check if we're inside the crop area (for moving)
     if (
       x >= cropPosition.startX && 
       x <= cropPosition.endX && 
@@ -174,7 +217,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       setIsMoving(true);
       setMoveStartPos({ x, y });
     } else {
-      // Otherwise start a new selection
       setIsDragging(true);
       setCropPosition({ ...cropPosition, startX: x, startY: y, endX: x, endY: y });
     }
@@ -195,7 +237,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const y = (e.clientY - rect.top) * scaleY;
     
     if (isMoving) {
-      // Move the entire selection
       const deltaX = x - moveStartPos.x;
       const deltaY = y - moveStartPos.y;
       
@@ -205,7 +246,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       let newStartX = cropPosition.startX + deltaX;
       let newStartY = cropPosition.startY + deltaY;
       
-      // Make sure we don't move outside the canvas
       if (newStartX < 0) newStartX = 0;
       if (newStartY < 0) newStartY = 0;
       if (newStartX + width > canvas.width) newStartX = canvas.width - width;
@@ -223,8 +263,31 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
       drawCropArea(ctx, newPos);
       updatePreview(newPos);
     } else if (isDragging) {
-      // Resize the selection
       const newPos = { ...cropPosition, endX: x, endY: y };
+      
+      if (cropShape === 'square' || cropShape === 'circle') {
+        const width = Math.abs(newPos.endX - newPos.startX);
+        const height = Math.abs(newPos.endY - newPos.startY);
+        const size = Math.max(width, height);
+        
+        if (newPos.endX > newPos.startX) {
+          newPos.endX = newPos.startX + size;
+        } else {
+          newPos.endX = newPos.startX - size;
+        }
+        
+        if (newPos.endY > newPos.startY) {
+          newPos.endY = newPos.startY + size;
+        } else {
+          newPos.endY = newPos.startY - size;
+        }
+        
+        if (newPos.endX > canvas.width) newPos.endX = canvas.width;
+        if (newPos.endY > canvas.height) newPos.endY = canvas.height;
+        if (newPos.endX < 0) newPos.endX = 0;
+        if (newPos.endY < 0) newPos.endY = 0;
+      }
+      
       setCropPosition(newPos);
       drawCropArea(ctx, newPos);
       updatePreview(newPos);
@@ -234,6 +297,48 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
   const handleMouseUp = () => {
     setIsDragging(false);
     setIsMoving(false);
+  };
+  
+  const handleZoom = (direction: 'in' | 'out') => {
+    if (!canvasRef.current || !imgRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const newZoomLevel = direction === 'in' 
+      ? Math.min(zoomLevel + 0.1, 2) 
+      : Math.max(zoomLevel - 0.1, 0.5);
+    
+    setZoomLevel(newZoomLevel);
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(newZoomLevel, newZoomLevel);
+    ctx.translate(-centerX, -centerY);
+    ctx.drawImage(imgRef.current, 0, 0);
+    ctx.restore();
+    
+    drawCropArea(ctx, cropPosition);
+    updatePreview(cropPosition);
+  };
+  
+  const toggleCropShape = () => {
+    const newShape = cropShape === 'square' ? 'circle' : 'square';
+    setCropShape(newShape);
+    
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        drawCropArea(ctx, cropPosition);
+        updatePreview(cropPosition);
+      }
+    }
   };
   
   const handleCrop = () => {
@@ -248,7 +353,6 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const width = Math.abs(cropPosition.endX - cropPosition.startX);
     const height = Math.abs(cropPosition.endY - cropPosition.startY);
     
-    // Create a new canvas at the original resolution to preserve image quality
     const croppedCanvas = document.createElement('canvas');
     croppedCanvas.width = width;
     croppedCanvas.height = height;
@@ -256,47 +360,102 @@ const CropArea = ({ imageUrl, onCrop, onCancel }: CropAreaProps) => {
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return;
     
-    // Draw the cropped portion at full resolution
     croppedCtx.drawImage(
       imgRef.current!,
       startX, startY, width, height,
       0, 0, width, height
     );
     
-    // Use PNG format to preserve quality
+    if (cropShape === 'circle') {
+      croppedCtx.globalCompositeOperation = 'destination-in';
+      croppedCtx.beginPath();
+      croppedCtx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2);
+      croppedCtx.fill();
+      croppedCtx.globalCompositeOperation = 'source-over';
+    }
+    
     const croppedImageData = croppedCanvas.toDataURL('image/png', 1.0);
     onCrop(croppedImageData);
   };
   
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="border rounded-md overflow-hidden max-w-full">
-          <p className="text-sm font-medium p-2 bg-muted">Select area to crop</p>
-          <canvas
-            ref={canvasRef}
-            className="max-w-full h-auto object-contain"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          />
-        </div>
-        
-        <div className="border rounded-md overflow-hidden flex flex-col">
-          <p className="text-sm font-medium p-2 bg-muted">Preview</p>
-          <div className="flex-1 flex items-center justify-center p-4 bg-[#f3f3f3] dark:bg-gray-800">
-            <canvas 
-              ref={previewCanvasRef}
-              className="max-w-full max-h-[200px] object-contain shadow-md"
-            />
-          </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleZoom('in')}
+          title="Zoom In"
+        >
+          <ZoomIn className="h-4 w-4 mr-1" /> Zoom In
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleZoom('out')}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4 w-4 mr-1" /> Zoom Out
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={toggleCropShape}
+          title="Toggle Crop Shape"
+        >
+          {cropShape === 'square' ? 'Circle Crop' : 'Square Crop'}
+        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+          >
+            <X className="h-4 w-4 mr-1" /> Cancel
+          </Button>
+          <Button 
+            size="sm"
+            onClick={handleCrop}
+          >
+            <Check className="h-4 w-4 mr-1" /> Apply Crop
+          </Button>
         </div>
       </div>
       
-      <div className="flex justify-end space-x-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleCrop}>Crop Image</Button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-gray-100 dark:bg-gray-800 border rounded-md overflow-hidden">
+          <div className="bg-muted p-2 flex items-center">
+            <Move className="h-4 w-4 mr-1 text-muted-foreground" />
+            <span className="text-sm font-medium">Click and drag to adjust</span>
+          </div>
+          <div className="relative">
+            <canvas
+              ref={canvasRef}
+              className="max-w-full h-auto object-contain cursor-move"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            />
+            <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+              {cropShape === 'square' ? 'Square Crop' : 'Circle Crop'} | Zoom: {(zoomLevel * 100).toFixed(0)}%
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[#f8f8f8] dark:bg-gray-900 border rounded-md overflow-hidden flex flex-col">
+          <div className="bg-muted p-2">
+            <span className="text-sm font-medium">Preview</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className={`relative ${cropShape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
+              <canvas 
+                ref={previewCanvasRef}
+                className="max-w-full max-h-[300px] object-contain shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -426,7 +585,7 @@ const FileUploadFields = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="crop-image-upload">Image Upload with Crop</Label>
+          <Label htmlFor="crop-image-upload">LinkedIn-style Image Crop</Label>
           <div className="flex items-center space-x-2">
             <Input
               id="crop-image-upload"
@@ -458,7 +617,7 @@ const FileUploadFields = () => {
               <img 
                 src={croppedImage} 
                 alt="Cropped Preview" 
-                className="max-w-full h-auto max-h-[200px] rounded-md"
+                className={`max-w-full h-auto max-h-[200px] rounded-md ${cropShape === 'circle' ? 'rounded-full' : ''}`}
               />
             </div>
           )}
