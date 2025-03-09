@@ -469,6 +469,7 @@ const FileUploadFields = () => {
   const [dragOver, setDragOver] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
   
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
