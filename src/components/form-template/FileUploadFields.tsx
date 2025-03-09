@@ -62,7 +62,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
   const [isMoving, setIsMoving] = useState(false);
   const [moveStartPos, setMoveStartPos] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [cropShape, setCropShape] = useState<'square' | 'circle'>(aspectRatio === 'square' ? 'square' : 'rectangle');
+  const [cropShape, setCropShape] = useState<string>(aspectRatio === 'square' ? 'square' : 'rectangle');
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   
@@ -191,7 +191,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     
-    if (cropShape === 'square' || cropShape === 'rectangle') {
+    if (cropShape !== 'circle') {
       const thirdHeight = height / 3;
       ctx.beginPath();
       ctx.moveTo(startX, startY + thirdHeight);
@@ -640,7 +640,7 @@ const FileUploadFields = () => {
   const [dragOver, setDragOver] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
-  const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
+  const [cropShape, setCropShape] = useState<string>('square');
   const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
   const [croppedBanner, setCroppedBanner] = useState<string | null>(null);
   const [cropType, setCropType] = useState<'profile' | 'banner'>('profile');
