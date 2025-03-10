@@ -642,7 +642,7 @@ const FileUploadFields = () => {
   const [dragOver, setDragOver] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
-  const [cropShape, setCropShape] = useState<string>('square');
+  const [cropShape, setCropShape] = useState<'square' | 'circle' | 'rectangle'>('square');
   const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
   const [croppedBanner, setCroppedBanner] = useState<string | null>(null);
   const [cropType, setCropType] = useState<'profile' | 'banner'>('profile');
@@ -783,4 +783,4 @@ const FileUploadFields = () => {
           <FilePreview file={imageFile} type="image" />
         </div>
         
-        <div className="space-y
+        <div
