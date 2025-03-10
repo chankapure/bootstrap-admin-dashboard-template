@@ -282,17 +282,17 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
     
     if (cropShape === 'circle') return null;
     
+    // Corner handles
     if (Math.abs(x - startX) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tl';
     if (Math.abs(x - endX) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tr';
     if (Math.abs(x - startX) <= handleSize && Math.abs(y - endY) <= handleSize) return 'bl';
     if (Math.abs(x - endX) <= handleSize && Math.abs(y - endY) <= handleSize) return 'br';
     
-    if (aspectRatio !== 'square') {
-      if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tm';
-      if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - endY) <= handleSize) return 'bm';
-      if (Math.abs(x - startX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'lm';
-      if (Math.abs(x - endX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'rm';
-    }
+    // Side handles (always available)
+    if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - startY) <= handleSize) return 'tm';
+    if (Math.abs(x - (startX + width/2)) <= handleSize && Math.abs(y - endY) <= handleSize) return 'bm';
+    if (Math.abs(x - startX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'lm';
+    if (Math.abs(x - endX) <= handleSize && Math.abs(y - (startY + height/2)) <= handleSize) return 'rm';
     
     return null;
   };
@@ -362,19 +362,15 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
         case 'rm': newPos.endX = x; break;
       }
       
-      if ((cropShape === 'square' || aspectRatio === 'square') && resizeHandle !== 'tm' && resizeHandle !== 'bm' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+      if ((cropShape === 'square' || aspectRatio === 'square') && !['tm', 'bm', 'lm', 'rm'].includes(resizeHandle)) {
         const width = Math.abs(newPos.endX - newPos.startX);
         
-        if (resizeHandle === 'tl') {
+        if (resizeHandle.includes('t')) {
           newPos.startY = newPos.endY - width;
-        } else if (resizeHandle === 'tr') {
-          newPos.startY = newPos.endY - width;
-        } else if (resizeHandle === 'bl') {
-          newPos.endY = newPos.startY + width;
-        } else if (resizeHandle === 'br') {
+        } else if (resizeHandle.includes('b')) {
           newPos.endY = newPos.startY + width;
         }
-      } else if (aspectRatio === 'banner' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+      } else if (aspectRatio === 'banner' && !['lm', 'rm'].includes(resizeHandle)) {
         const width = Math.abs(newPos.endX - newPos.startX);
         const height = width / 3;
         
@@ -383,7 +379,7 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
         } else if (resizeHandle.includes('b')) {
           newPos.endY = newPos.startY + height;
         }
-      } else if (aspectRatio === 'rectangle' && resizeHandle !== 'tm' && resizeHandle !== 'bm' && resizeHandle !== 'lm' && resizeHandle !== 'rm') {
+      } else if (aspectRatio === 'rectangle' && !['tm', 'bm', 'lm', 'rm'].includes(resizeHandle)) {
         const width = Math.abs(newPos.endX - newPos.startX);
         const height = width * 0.75;
         
@@ -393,6 +389,12 @@ const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio = 'square' }: CropAr
           newPos.endY = newPos.startY + height;
         }
       }
+      
+      // Ensure crop area stays within canvas bounds
+      if (newPos.startX < 0) newPos.startX = 0;
+      if (newPos.startY < 0) newPos.startY = 0;
+      if (newPos.endX > canvas.width) newPos.endX = canvas.width;
+      if (newPos.endY > canvas.height) newPos.endY = canvas.height;
       
       setCropPosition(newPos);
       drawCropArea(ctx, newPos);
@@ -781,160 +783,4 @@ const FileUploadFields = () => {
           <FilePreview file={imageFile} type="image" />
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="crop-image-upload">LinkedIn-style Profile Image Crop</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="crop-image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleCropImageChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('crop-image-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Profile Image
-            </Button>
-          </div>
-          
-          {cropImageUrl && cropType === 'profile' && (
-            <CropArea 
-              imageUrl={cropImageUrl}
-              onCrop={handleCropComplete}
-              onCancel={handleCropCancel}
-              aspectRatio="square"
-            />
-          )}
-          
-          {croppedImage && !cropImageUrl && (
-            <div className="mt-2">
-              <p className="text-sm text-muted-foreground mb-2">Cropped Profile Image:</p>
-              <img 
-                src={croppedImage} 
-                alt="Cropped Preview" 
-                className={`max-w-full h-auto max-h-[200px] rounded-md ${cropShape === 'circle' ? 'rounded-full' : ''}`}
-              />
-            </div>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="banner-image-upload">Cover Image/Banner Crop (Facebook/LinkedIn style)</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="banner-image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleBannerImageChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('banner-image-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <Crop className="mr-2 h-4 w-4" /> Upload & Crop Banner Image
-            </Button>
-          </div>
-          
-          {bannerImageUrl && cropType === 'banner' && (
-            <CropArea 
-              imageUrl={bannerImageUrl}
-              onCrop={handleCropComplete}
-              onCancel={handleCropCancel}
-              aspectRatio="banner"
-            />
-          )}
-          
-          {croppedBanner && !bannerImageUrl && (
-            <div className="mt-2">
-              <p className="text-sm text-muted-foreground mb-2">Cropped Banner Image:</p>
-              <img 
-                src={croppedBanner} 
-                alt="Cropped Banner Preview" 
-                className="max-w-full h-auto max-h-[200px] rounded-md"
-              />
-            </div>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="video-upload">Video Upload</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="video-upload"
-              type="file"
-              accept="video/*"
-              onChange={handleVideoChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('video-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <Video className="mr-2 h-4 w-4" /> Upload Video
-            </Button>
-            {videoFile && (
-              <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                {videoFile.name}
-              </span>
-            )}
-          </div>
-          <FilePreview file={videoFile} type="video" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label>Drag and Drop</Label>
-          <div 
-            className={`border-2 border-dashed rounded-md p-10 text-center transition-colors ${
-              dragOver ? 'border-primary bg-primary/5' : 'border-border'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-          >
-            <div className="flex flex-col items-center">
-              <Upload size={32} className="text-muted-foreground mb-2" />
-              <p className="text-muted-foreground text-sm">
-                Drag and drop files here or
-              </p>
-              <Button 
-                variant="ghost" 
-                className="mt-2" 
-                onClick={() => document.getElementById('drag-drop-file')?.click()}
-              >
-                Browse files
-              </Button>
-              <Input
-                id="drag-drop-file"
-                type="file"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    const file = e.target.files[0];
-                    if (file.type.startsWith('image/')) {
-                      setImageFile(file);
-                    } else if (file.type.startsWith('video/')) {
-                      setVideoFile(file);
-                    } else {
-                      setDocumentFile(file);
-                    }
-                  }
-                }}
-                className="hidden"
-              />
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-export default FileUploadFields;
+        <div className="space-y
