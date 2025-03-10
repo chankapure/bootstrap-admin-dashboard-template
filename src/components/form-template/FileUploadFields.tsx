@@ -1,176 +1,12 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Upload, FileType, Check, X, ZoomIn, ZoomOut, Move } from 'lucide-react';
-import { Image as LucideImage } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import Cropper from 'react-easy-crop';
-import { Area } from 'react-easy-crop/types';
-
-interface FilePreviewProps {
-  file: File | null;
-  type: 'document' | 'image' | 'video';
-}
-
-const FilePreview = ({ file, type }: FilePreviewProps) => {
-  if (!file) return null;
-  
-  if (type === 'image') {
-    return (
-      <div className="mt-2">
-        <img 
-          src={URL.createObjectURL(file)} 
-          alt="Preview" 
-          className="max-w-full h-auto max-h-[200px] rounded-md"
-        />
-      </div>
-    );
-  }
-  
-  if (type === 'video') {
-    return (
-      <div className="mt-2">
-        <video 
-          src={URL.createObjectURL(file)} 
-          controls 
-          className="max-w-full h-auto max-h-[200px] rounded-md"
-        />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="mt-2 p-4 border border-border rounded-md flex items-center gap-2">
-      <FileType size={24} />
-      <span>{file.name}</span>
-    </div>
-  );
-};
-
-interface CropAreaProps {
-  imageUrl: string;
-  onCrop: (croppedImage: string) => void;
-  onCancel: () => void;
-  aspectRatio: 'square' | 'banner';
-}
-
-const CropArea = ({ imageUrl, onCrop, onCancel, aspectRatio }: CropAreaProps) => {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-  const cropperRef = useRef<Cropper>(null);
-
-  const aspectRatioValue = aspectRatio === 'square' ? 1 : 3 / 1;
-
-  const onCropComplete = async (croppedArea: Area, croppedAreaPixelsLocal: Area) => {
-    setCroppedAreaPixels(croppedAreaPixelsLocal);
-  };
-
-  const handleCrop = async () => {
-    if (!croppedAreaPixels) return;
-
-    try {
-      const croppedImage = await getCroppedImg(
-        imageUrl,
-        croppedAreaPixels,
-        rotation
-      );
-      onCrop(croppedImage);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleZoomIn = () => {
-    setZoom(prevZoom => Math.min(prevZoom + 0.1, 3));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(prevZoom => Math.max(prevZoom - 0.1, 1));
-  };
-
-  const handleMove = () => {
-    if (cropperRef.current) {
-      cropperRef.current.center();
-    }
-  };
-
-  return (
-    <div className="relative w-full h-[300px]">
-      <Cropper
-        ref={cropperRef}
-        image={imageUrl}
-        crop={crop}
-        zoom={zoom}
-        aspect={aspectRatioValue}
-        onCropChange={setCrop}
-        onCropComplete={onCropComplete}
-        onZoomChange={setZoom}
-        rotation={rotation}
-        onRotationChange={setRotation}
-        restrictPosition={false}
-      />
-      <div className="absolute bottom-0 left-0 w-full p-4 flex justify-between items-center bg-black/50 text-white">
-        <div className="flex space-x-2">
-          <Button size="icon" onClick={handleZoomIn}><ZoomIn className="h-4 w-4" /></Button>
-          <Button size="icon" onClick={handleZoomOut}><ZoomOut className="h-4 w-4" /></Button>
-          <Button size="icon" onClick={handleMove}><Move className="h-4 w-4" /></Button>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button onClick={handleCrop}>Crop</Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-async function getCroppedImg(imageSrc: string, pixelCrop: Area, rotation = 0): Promise<string> {
-  const image = new Image();
-  image.src = imageSrc;
-  await new Promise((resolve) => image.onload = resolve);
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) {
-    return '';
-  }
-
-  const rotRad = rotation * Math.PI / 180;
-
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
-
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate(rotRad);
-  ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  );
-
-  return new Promise((resolve) => {
-    canvas.toBlob(file => {
-      if (file) {
-        resolve(URL.createObjectURL(file));
-      } else {
-        resolve('');
-      }
-    }, 'image/jpeg');
-  });
-}
+import { Upload, FileType, Image as LucideImage } from 'lucide-react';
+import { UploadField } from './file-upload/UploadField';
+import { CropArea } from './file-upload/CropArea';
 
 const FileUploadFields = () => {
   const { toast } = useToast();
@@ -180,11 +16,10 @@ const FileUploadFields = () => {
   const [dragOver, setDragOver] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
-  const [cropShape, setCropShape] = useState<'square' | 'circle'>('square');
   const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
   const [croppedBanner, setCroppedBanner] = useState<string | null>(null);
   const [cropType, setCropType] = useState<'profile' | 'banner'>('profile');
-  
+
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setDocumentFile(e.target.files[0]);
@@ -194,7 +29,7 @@ const FileUploadFields = () => {
       });
     }
   };
-  
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setImageFile(e.target.files[0]);
@@ -204,7 +39,7 @@ const FileUploadFields = () => {
       });
     }
   };
-  
+
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setVideoFile(e.target.files[0]);
@@ -269,7 +104,7 @@ const FileUploadFields = () => {
     setCropImageUrl(null);
     setBannerImageUrl(null);
   };
-  
+
   return (
     <Card>
       <CardHeader>
@@ -279,174 +114,99 @@ const FileUploadFields = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        <div className="space-y-2">
-          <Label htmlFor="document-upload">Document Upload</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="document-upload"
-              type="file"
-              onChange={handleDocumentChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('document-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <Upload className="mr-2 h-4 w-4" /> Upload Document
-            </Button>
-            {documentFile && (
-              <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                {documentFile.name}
-              </span>
-            )}
-          </div>
-          <FilePreview file={documentFile} type="document" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="image-upload">Image Upload</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('image-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <LucideImage className="mr-2 h-4 w-4" /> Upload Image
-            </Button>
-            {imageFile && (
-              <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                {imageFile.name}
-              </span>
-            )}
-          </div>
-          <FilePreview file={imageFile} type="image" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="video-upload">Video Upload</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="video-upload"
-              type="file"
-              accept="video/*"
-              onChange={handleVideoChange}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('video-upload')?.click()}
-              className="cursor-pointer"
-            >
-              <FileType className="mr-2 h-4 w-4" /> Upload Video
-            </Button>
-            {videoFile && (
-              <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                {videoFile.name}
-              </span>
-            )}
-          </div>
-          <FilePreview file={videoFile} type="video" />
-        </div>
-        
-        {/* Image cropping section */}
+        <UploadField
+          id="document-upload"
+          label="Document Upload"
+          icon={<Upload className="mr-2 h-4 w-4" />}
+          buttonText="Upload Document"
+          file={documentFile}
+          onChange={handleDocumentChange}
+          type="document"
+        />
+
+        <UploadField
+          id="image-upload"
+          label="Image Upload"
+          icon={<LucideImage className="mr-2 h-4 w-4" />}
+          buttonText="Upload Image"
+          file={imageFile}
+          onChange={handleImageChange}
+          accept="image/*"
+          type="image"
+        />
+
+        <UploadField
+          id="video-upload"
+          label="Video Upload"
+          icon={<FileType className="mr-2 h-4 w-4" />}
+          buttonText="Upload Video"
+          file={videoFile}
+          onChange={handleVideoChange}
+          accept="video/*"
+          type="video"
+        />
+
         <div className="space-y-2">
           <h3 className="text-lg font-medium">Image Cropping</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="crop-image-upload">Profile Image (1:1)</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="crop-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCropImageChange}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('crop-image-upload')?.click()}
-                  className="cursor-pointer"
-                >
-                  <LucideImage className="mr-2 h-4 w-4" /> Select Image
-                </Button>
-              </div>
-              
-              {croppedImage && (
-                <div className="mt-2">
-                  <div className="text-sm font-medium mb-1">Cropped Result:</div>
-                  <img 
-                    src={croppedImage} 
-                    alt="Cropped" 
-                    className={`max-w-full h-auto max-h-[200px] rounded-md ${cropShape === 'circle' ? 'rounded-full' : ''}`}
-                  />
-                </div>
-              )}
-            </div>
+            <UploadField
+              id="crop-image-upload"
+              label="Profile Image (1:1)"
+              icon={<LucideImage className="mr-2 h-4 w-4" />}
+              buttonText="Select Image"
+              file={null}
+              onChange={handleCropImageChange}
+              accept="image/*"
+              type="image"
+            />
             
-            <div className="space-y-2">
-              <Label htmlFor="banner-image-upload">Banner Image (3:1)</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="banner-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleBannerImageChange}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('banner-image-upload')?.click()}
-                  className="cursor-pointer"
-                >
-                  <LucideImage className="mr-2 h-4 w-4" /> Select Banner
-                </Button>
-              </div>
-              
-              {croppedBanner && (
-                <div className="mt-2">
-                  <div className="text-sm font-medium mb-1">Cropped Banner:</div>
-                  <img 
-                    src={croppedBanner} 
-                    alt="Cropped Banner" 
-                    className="max-w-full h-auto max-h-[200px] rounded-md"
-                  />
-                </div>
-              )}
-            </div>
+            <UploadField
+              id="banner-image-upload"
+              label="Banner Image (3:1)"
+              icon={<LucideImage className="mr-2 h-4 w-4" />}
+              buttonText="Select Banner"
+              file={null}
+              onChange={handleBannerImageChange}
+              accept="image/*"
+              type="image"
+            />
           </div>
           
-          {/* Crop UI */}
+          {croppedImage && (
+            <div className="mt-2">
+              <div className="text-sm font-medium mb-1">Cropped Result:</div>
+              <img 
+                src={croppedImage} 
+                alt="Cropped" 
+                className="max-w-full h-auto max-h-[200px] rounded-md"
+              />
+            </div>
+          )}
+          
+          {croppedBanner && (
+            <div className="mt-2">
+              <div className="text-sm font-medium mb-1">Cropped Banner:</div>
+              <img 
+                src={croppedBanner} 
+                alt="Cropped Banner" 
+                className="max-w-full h-auto max-h-[200px] rounded-md"
+              />
+            </div>
+          )}
+          
           {(cropImageUrl || bannerImageUrl) && (
             <div className="mt-4 p-4 border rounded-md bg-background">
-              {cropType === 'profile' ? (
-                <CropArea 
-                  imageUrl={cropImageUrl!} 
-                  onCrop={handleCropComplete} 
-                  onCancel={handleCropCancel}
-                  aspectRatio="square"
-                />
-              ) : (
-                <CropArea 
-                  imageUrl={bannerImageUrl!} 
-                  onCrop={handleCropComplete} 
-                  onCancel={handleCropCancel}
-                  aspectRatio="banner"
-                />
-              )}
+              <CropArea 
+                imageUrl={cropType === 'profile' ? cropImageUrl! : bannerImageUrl!}
+                onCrop={handleCropComplete}
+                onCancel={handleCropCancel}
+                aspectRatio={cropType === 'profile' ? 'square' : 'banner'}
+              />
             </div>
           )}
         </div>
         
-        {/* Drag and Drop area */}
         <div className="space-y-2">
           <h3 className="text-lg font-medium">Drag and Drop</h3>
           <div 
