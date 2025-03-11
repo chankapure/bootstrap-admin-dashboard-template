@@ -18,6 +18,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Search, Edit, Trash, Plus } from 'lucide-react';
 
@@ -39,7 +49,9 @@ const UserTable = ({ initialUsers }: UserTableProps) => {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
   
   const usersPerPage = 8;
   
@@ -65,8 +77,17 @@ const UserTable = ({ initialUsers }: UserTableProps) => {
     setIsDialogOpen(true);
   };
   
-  const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter(user => user.id !== userId));
+  const handleDeleteDialogOpen = (userId: string) => {
+    setUserToDelete(userId);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDeleteUser = () => {
+    if (userToDelete) {
+      setUsers(users.filter(user => user.id !== userToDelete));
+      setUserToDelete(null);
+      setIsDeleteDialogOpen(false);
+    }
   };
   
   const handleSaveUser = (e: React.FormEvent) => {
@@ -167,7 +188,7 @@ const UserTable = ({ initialUsers }: UserTableProps) => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => handleDeleteDialogOpen(user.id)}
                         className="h-8 w-8 text-destructive hover:text-destructive"
                       >
                         <Trash className="h-4 w-4" />
@@ -218,6 +239,7 @@ const UserTable = ({ initialUsers }: UserTableProps) => {
         </div>
       )}
       
+      {/* User edit/create dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -294,6 +316,25 @@ const UserTable = ({ initialUsers }: UserTableProps) => {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user
+              and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
