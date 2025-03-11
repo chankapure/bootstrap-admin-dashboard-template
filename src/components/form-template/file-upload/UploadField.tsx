@@ -14,6 +14,7 @@ interface UploadFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   accept?: string;
   type: 'document' | 'image' | 'video';
+  onDelete?: () => void;
 }
 
 export const UploadField = ({
@@ -24,12 +25,13 @@ export const UploadField = ({
   file,
   onChange,
   accept,
-  type
+  type,
+  onDelete
 }: UploadFieldProps) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex items-center space-x-2">
+      <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+      <div className="flex items-center gap-2">
         <Input
           id={id}
           type="file"
@@ -40,7 +42,7 @@ export const UploadField = ({
         <Button
           variant="outline"
           onClick={() => document.getElementById(id)?.click()}
-          className="cursor-pointer"
+          className="cursor-pointer transition-all hover:bg-accent/10 hover:text-accent hover:border-accent/50"
         >
           {icon} {buttonText}
         </Button>
@@ -50,7 +52,7 @@ export const UploadField = ({
           </span>
         )}
       </div>
-      <FilePreview file={file} type={type} />
+      <FilePreview file={file} type={type} onDelete={onDelete} />
     </div>
   );
 };
