@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 const Layout = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Check for user's preferred color scheme
   useEffect(() => {
@@ -30,10 +31,26 @@ const Layout = () => {
     setIsDarkMode(!isDarkMode);
   };
 
+  // Subscribe to sidebar collapse state changes
+  useEffect(() => {
+    const handleSidebarChange = (e: CustomEvent) => {
+      setSidebarCollapsed(e.detail.collapsed);
+    };
+    
+    window.addEventListener('sidebar-toggle' as any, handleSidebarChange);
+    
+    return () => {
+      window.removeEventListener('sidebar-toggle' as any, handleSidebarChange);
+    };
+  }, []);
+
   return (
     <div className={cn("min-h-screen bg-background text-foreground")}>
-      <Sidebar />
-      <div className="flex flex-col ml-[70px] md:ml-[240px] min-h-screen">
+      <Sidebar onToggleCollapse={(collapsed) => setSidebarCollapsed(collapsed)} />
+      <div className={cn(
+        "flex flex-col min-h-screen transition-all duration-300",
+        sidebarCollapsed ? "ml-[70px]" : "ml-[240px]"
+      )}>
         <Navbar onToggleTheme={toggleTheme} isDarkMode={isDarkMode} />
         <main className="flex-1 p-4 md:p-6 transition-all duration-200 animate-fade-in">
           <Outlet />

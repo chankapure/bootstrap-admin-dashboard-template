@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,16 +7,34 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Check, Trash, Play, Pause, Volume2, VolumeX, ChevronDown, FileType, Image, Video, Film, Radio } from 'lucide-react';
+import { Upload, Check, Trash, Play, Pause, Volume2, VolumeX, ChevronDown, FileType, Image, Video, Film, Radio, AlignVerticalSpaceBetween, FileEdit, UploadCloud, Music, File, Settings2 } from 'lucide-react';
 import BasicFormFields from '@/components/form-template/BasicFormFields';
 import FileUploadFields from '@/components/form-template/FileUploadFields';
 import MediaPlayers from '@/components/form-template/MediaPlayers';
 import AccordionExample from '@/components/form-template/AccordionExample';
 import StepperForm from '@/components/form-template/StepperForm';
 import ToastExamples from '@/components/form-template/ToastExamples';
+import { cn } from '@/lib/utils';
+
+interface TabInfo {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+}
 
 const FormTemplate = () => {
   const { toast } = useToast();
+
+  const tabs: TabInfo[] = [
+    { id: "basic-fields", label: "Basic Fields", icon: <FileEdit className="h-4 w-4" />, color: "from-blue-300 to-blue-500" },
+    { id: "file-upload", label: "File Upload", icon: <UploadCloud className="h-4 w-4" />, color: "from-green-300 to-green-500" },
+    { id: "media-players", label: "Media Players", icon: <Music className="h-4 w-4" />, color: "from-purple-300 to-purple-500" },
+    { id: "accordions", label: "Accordions", icon: <AlignVerticalSpaceBetween className="h-4 w-4" />, color: "from-yellow-300 to-yellow-500" },
+    { id: "stepper", label: "Stepper Form", icon: <Settings2 className="h-4 w-4" />, color: "from-red-300 to-red-500" },
+    { id: "toasts", label: "Toasts", icon: <File className="h-4 w-4" />, color: "from-indigo-300 to-indigo-500" },
+    { id: "all", label: "All Components", icon: <Settings2 className="h-4 w-4" />, color: "from-gray-300 to-gray-500" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -29,101 +46,120 @@ const FormTemplate = () => {
       </div>
 
       <Tabs defaultValue="basic-fields" className="w-full">
-        <TabsList className="grid grid-cols-3 md:grid-cols-7 w-full mb-4 bg-secondary/40 p-1 rounded-lg">
-          <TabsTrigger value="basic-fields" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Basic Fields</TabsTrigger>
-          <TabsTrigger value="file-upload" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">File Upload</TabsTrigger>
-          <TabsTrigger value="media-players" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Media Players</TabsTrigger>
-          <TabsTrigger value="accordions" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Accordions</TabsTrigger>
-          <TabsTrigger value="stepper" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Stepper Form</TabsTrigger>
-          <TabsTrigger value="toasts" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Toasts</TabsTrigger>
-          <TabsTrigger value="all" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">All Components</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2 -mx-6 px-6">
+          <TabsList className="inline-flex w-auto min-w-full md:w-auto bg-secondary/40 p-1 rounded-lg">
+            {tabs.map((tab) => (
+              <TabsTrigger 
+                key={tab.id}
+                value={tab.id} 
+                className={cn(
+                  "group relative overflow-hidden transition-all duration-300",
+                  "data-[state=active]:shadow-md data-[state=active]:text-white"
+                )}
+              >
+                <div 
+                  className={cn(
+                    "absolute inset-0 opacity-0 bg-gradient-to-r transition-opacity duration-300 -z-10",
+                    tab.color,
+                    "group-data-[state=active]:opacity-100"
+                  )} 
+                />
+                <div className="flex items-center gap-2">
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </div>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-        <TabsContent value="basic-fields" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Basic Form Fields</h2>
-          </div>
-          <BasicFormFields />
-        </TabsContent>
-
-        <TabsContent value="file-upload" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">File Upload Components</h2>
-          </div>
-          <FileUploadFields />
-        </TabsContent>
-
-        <TabsContent value="media-players" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Media Player Components</h2>
-          </div>
-          <MediaPlayers />
-        </TabsContent>
-
-        <TabsContent value="accordions" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Accordion Components</h2>
-          </div>
-          <AccordionExample />
-        </TabsContent>
-
-        <TabsContent value="stepper" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Multi-Step Form</h2>
-          </div>
-          <StepperForm />
-        </TabsContent>
-
-        <TabsContent value="toasts" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Toast Notifications</h2>
-          </div>
-          <ToastExamples />
-        </TabsContent>
-
-        <TabsContent value="all" className="space-y-12">
-          <div className="space-y-6">
+        <div className="pt-4">
+          <TabsContent value="basic-fields" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Basic Form Fields</h2>
             </div>
             <BasicFormFields />
-          </div>
-          
-          <div className="space-y-6">
+          </TabsContent>
+
+          <TabsContent value="file-upload" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">File Upload Components</h2>
             </div>
             <FileUploadFields />
-          </div>
-          
-          <div className="space-y-6">
+          </TabsContent>
+
+          <TabsContent value="media-players" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Media Player Components</h2>
             </div>
             <MediaPlayers />
-          </div>
-          
-          <div className="space-y-6">
+          </TabsContent>
+
+          <TabsContent value="accordions" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Accordion Components</h2>
             </div>
             <AccordionExample />
-          </div>
-          
-          <div className="space-y-6">
+          </TabsContent>
+
+          <TabsContent value="stepper" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Multi-Step Form</h2>
             </div>
             <StepperForm />
-          </div>
-          
-          <div className="space-y-6">
+          </TabsContent>
+
+          <TabsContent value="toasts" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Toast Notifications</h2>
             </div>
             <ToastExamples />
-          </div>
-        </TabsContent>
+          </TabsContent>
+
+          <TabsContent value="all" className="space-y-12">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Basic Form Fields</h2>
+              </div>
+              <BasicFormFields />
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">File Upload Components</h2>
+              </div>
+              <FileUploadFields />
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Media Player Components</h2>
+              </div>
+              <MediaPlayers />
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Accordion Components</h2>
+              </div>
+              <AccordionExample />
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Multi-Step Form</h2>
+              </div>
+              <StepperForm />
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Toast Notifications</h2>
+              </div>
+              <ToastExamples />
+            </div>
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

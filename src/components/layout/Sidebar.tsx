@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutDashboard, Users, BarChart3, Settings, LogOut, FileEdit } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,10 @@ type SidebarLink = {
   icon: React.ElementType;
 };
 
+interface SidebarProps {
+  onToggleCollapse?: (collapsed: boolean) => void;
+}
+
 const links: SidebarLink[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'Users', icon: Users },
@@ -19,12 +23,24 @@ const links: SidebarLink[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ onToggleCollapse }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
   const toggleSidebar = () => {
-    setCollapsed(!collapsed);
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    
+    // Notify parent component
+    if (onToggleCollapse) {
+      onToggleCollapse(newCollapsedState);
+    }
+    
+    // Dispatch custom event for other components to listen to
+    const event = new CustomEvent('sidebar-toggle', { 
+      detail: { collapsed: newCollapsedState } 
+    });
+    window.dispatchEvent(event);
   };
 
   return (
