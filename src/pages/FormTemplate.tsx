@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +47,8 @@ const FormTemplate = () => {
       </div>
 
       <Tabs defaultValue="basic-fields" className="w-full">
-        <div className="overflow-x-auto pb-2 -mx-6 px-6">
+        {/* Improved scrollbar with thin, elegant styling */}
+        <div className="overflow-x-auto pb-2 -mx-6 px-6 scrollbar-thin">
           <TabsList className="inline-flex w-auto min-w-full md:w-auto bg-secondary/40 p-1 rounded-lg">
             {tabs.map((tab) => (
               <TabsTrigger 
@@ -54,7 +56,7 @@ const FormTemplate = () => {
                 value={tab.id} 
                 className={cn(
                   "group relative overflow-hidden transition-all duration-300",
-                  "data-[state=active]:shadow-md data-[state=active]:text-white"
+                  "data-[state=active]:shadow-md"
                 )}
               >
                 <div 
@@ -66,7 +68,8 @@ const FormTemplate = () => {
                 />
                 <div className="flex items-center gap-2">
                   {tab.icon}
-                  <span>{tab.label}</span>
+                  {/* Improve text visibility with stronger contrast and font-weight */}
+                  <span className="group-data-[state=active]:text-white font-medium">{tab.label}</span>
                 </div>
               </TabsTrigger>
             ))}

@@ -100,17 +100,30 @@
     @apply bg-background text-foreground antialiased;
   }
 
-  /* Scrollbar styles */
+  /* Enhanced sleek scrollbar styles */
   ::-webkit-scrollbar {
-    @apply w-1.5;
+    @apply w-1 h-1;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-muted rounded-full;
+    @apply bg-transparent rounded-full;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/40 rounded-full hover:bg-muted-foreground/60 transition-colors;
+    @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 transition-colors;
+  }
+  
+  /* Special style for thin scrollbars */
+  .scrollbar-thin::-webkit-scrollbar {
+    @apply h-1;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-accent/30 hover:bg-accent/50 rounded-full;
   }
 }
 
